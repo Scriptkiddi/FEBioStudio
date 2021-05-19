@@ -41,8 +41,6 @@ DEALINGS IN THE SOFTWARE.
 #include <string>
 #include <tuple>
 
-//using namespace std;
-
 #define READER_TIF_TYPE	2
 
 class TIFReader : public BaseReader

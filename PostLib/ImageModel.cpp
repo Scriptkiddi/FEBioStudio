@@ -153,24 +153,82 @@ bool CImageSource::LoadNrrdData(std::wstring& filename)
 #endif
 
 #ifdef HAS_DICOM
-bool CImageSource::LoadDicomData(const std::string& filename)
+Byte* CImageSource::ProcessImages(const std::vector<std::string>& images)
 {
-  C3DImage* im = new C3DImage();
-  DicomImage* dicomImage = new DicomImage(filename.c_str());
+  std::vector<Byte> pixels;
 
-  int nx = dicomImage->getWidth();
-  int ny = dicomImage->getHeight();
-  int nz = dicomImage->getNumberOfFrames(); 
-  int dataSize = nx * ny * nz;
+  for (const auto &image : images)
+  {
+    auto dicomImage = std::make_unique<DicomImage>(image.c_str());
+    auto rawData = dicomImage->getInterData();
 
+   std::cout << dicomImage->getDepth() << std::endl;
+    
+    EP_Representation type = rawData->getRepresentation();
+    
+    if (type == EPR_Uint16 && dicomImage->getDepth() == 16)
+    {
+      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
+      for(int i = 0; i < rawData->getCount(); ++i)
+      { 
+        pixels.push_back(data[i] >> 8);
+      }
+    }
+    if (type == EPR_Sint16 && dicomImage->getDepth() == 16)
+    {
+      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
+      for(int i = 0; i < rawData->getCount(); ++i)
+      { 
+        pixels.push_back(data[i] >> 8);
+      }
+    }
+    else if (type == EPR_Uint16 && dicomImage->getDepth() == 12)
+    {
+      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
+ 
+      for(int i = 0; i < rawData->getCount(); ++i)
+      {
+        //std::bitset<12> twelveBit = data[i];
+        pixels.push_back(data[i] >> 4);
+      }
+    }
+    else if (type == EPR_Uint16 && dicomImage->getDepth() == 10)
+    {
+      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
+ 
+      for(int i = 0; i < rawData->getCount(); ++i)
+      {
+        std::bitset<10> tenBit = data[i];
+        pixels.push_back(256 * tenBit.to_ulong()/1024);
+      }
+    }
+    else
+    {
+      const Byte* data = static_cast<const Byte*>(rawData->getData());
+
+      for(int i = 0; i < rawData->getCount(); ++i)
+      { 
+        pixels.push_back(data[i]);
+      }
+    }
+  }
+
+  Byte* data = new Byte[pixels.size()];
+
+  for(int i = 0; i < pixels.size(); ++i)
+    data[i] = pixels.at(i);
+
+
+  return data;
+}
+
+Byte* CImageSource::ProcessImage(const std::string& image)
+{
+  DicomImage* dicomImage = new DicomImage(image.c_str());
   const DiPixel* rawData = dicomImage->getInterData();
 
   EP_Representation type = rawData->getRepresentation();  // An Enum that gets the type 
-  const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
   Byte* dataBuf = new Byte[rawData->getCount()]; //may not need dataSize
-
-  std::cout << "Image depth in pixels: " << dicomImage->getDepth() << std::endl;
-  std::cout << "Is it monochrome? " << dicomImage->isMonochrome() << std::endl;
 
   if (type == EPR_Uint16 && dicomImage->getDepth() == 16)
   {
@@ -183,25 +241,48 @@ bool CImageSource::LoadDicomData(const std::string& filename)
   else if (type == EPR_Uint16 && dicomImage->getDepth() == 10)
   {
     const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
-    std::vector<std::bitset<10>> tenBitVec(rawData->getCount());
  
     for(int i = 0; i < rawData->getCount(); ++i)
-      tenBitVec.at(i) = data[i];
-
-    for(int i = 0; i < rawData->getCount(); ++i)
     {
-      dataBuf[i] = 256 * tenBitVec[i].to_ulong()/1024;
+      std::bitset<10> tenBit = data[i];
+      dataBuf[i] = 256 * tenBit.to_ulong()/1024;
     }
   }
   else
   {
+    const Byte* data = static_cast<const Byte*>(rawData->getData()); //only returns const
     for(int i = 0; i < rawData->getCount(); ++i)
     { 
       dataBuf[i] = data[i];
     }
   }
 
-  BOX box(nx, ny, nz, nx+dicomImage->getWidthHeightRatio(), ny+dicomImage->getHeightWidthRatio(), nz+1.0);
+  return dataBuf;
+}
+
+bool CImageSource::LoadDicomData(const std::string& filename, const std::vector<std::string>& files)
+{
+  C3DImage* im = new C3DImage();
+  Byte* dataBuf;
+
+  auto tempImage = std::make_unique<DicomImage>(filename.c_str());
+
+  const int nx = tempImage->getWidth();
+  const int ny = tempImage->getHeight();
+  int nz;
+
+  if (!files.empty())
+  {
+    nz = files.size();
+    dataBuf = ProcessImages(files);
+  }
+  else
+  { 
+    nz = tempImage->getNumberOfFrames();
+    dataBuf = ProcessImage(filename);
+  }
+
+  BOX box(nx, ny, nz, nx+tempImage->getWidthHeightRatio(), ny+tempImage->getHeightWidthRatio(), nz+1.0);
   m_imgModel->SetBoundingBox(box);
 
   if (im->Create(nx, ny, nz, dataBuf) == false)
@@ -209,7 +290,7 @@ bool CImageSource::LoadDicomData(const std::string& filename)
     delete im;
     return false;
   }
-
+  
   SetValues(filename,nx,ny,nz);
   AssignImage(im);
 
@@ -360,11 +441,11 @@ bool CImageModel::LoadNrrdData(std::wstring& filename)
 #endif
 
 #ifdef HAS_DICOM
-bool CImageModel::LoadDicomData(const std::string& filename)
+bool CImageModel::LoadDicomData(const std::string& filename, const std::vector<std::string>& files)
 {
 	if (m_img == nullptr) m_img = new CImageSource(this);
 
-	if (m_img->LoadDicomData(filename) == false)
+	if (m_img->LoadDicomData(filename,files) == false)
 	{
 		delete m_img;
 		m_img = nullptr;

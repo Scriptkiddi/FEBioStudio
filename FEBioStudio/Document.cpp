@@ -832,7 +832,7 @@ Post::CImageModel* CGLDocument::ImportNrrd(const std::string& filename)
 #endif
 
 #ifdef HAS_DICOM
-Post::CImageModel* CGLDocument::ImportDicom(const std::string& filename)
+Post::CImageModel* CGLDocument::ImportDicom(const std::string& filename, const std::vector<std::string>& files)
 {
 	static int n = 1;
 	// we pass the relative path to the image model
@@ -840,7 +840,7 @@ Post::CImageModel* CGLDocument::ImportDicom(const std::string& filename)
 
 	Post::CImageModel* po = new Post::CImageModel(nullptr);
 
-	if (po->LoadDicomData(relFile) == false)
+	if (po->LoadDicomData(relFile,files) == false)
 	{
 		delete po;
 		return nullptr;

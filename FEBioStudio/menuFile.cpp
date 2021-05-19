@@ -1408,7 +1408,7 @@ void CMainWindow::on_actionImportImage_triggered()
 {
 	QStringList filters;
   #ifdef HAS_TEEM && HAS_DICOM
-	  filters << "RAW files (*.raw)" << "TIFF files (*.tiff, *.tif)" << "NRRD files (*.nrrd)" << "Dicom files (*.dicom, *.dcm)";
+	  filters << "RAW files (*.raw)" << "TIFF files (*.tiff, *.tif)" << "NRRD files (*.nrrd)" << "Dicom files (*.dicom, *.dcm)" << "All Files (*)";
   #elif HAS_DICOM
       filters << "RAW files (*.raw)" << "Dicom files (*.dicom, *.dcm)";
   #elif HAS_TEEM 
@@ -1421,7 +1421,11 @@ void CMainWindow::on_actionImportImage_triggered()
 
 	// present the file selection dialog box
 	QFileDialog filedlg(this);
+    #ifdef HAS_DICOM
+	filedlg.setFileMode(QFileDialog::ExistingFiles);
+    #else
 	filedlg.setFileMode(QFileDialog::ExistingFile);
+    #endif
 	filedlg.setAcceptMode(QFileDialog::AcceptOpen);
 	filedlg.setNameFilters(filters);
 
@@ -1464,10 +1468,19 @@ void CMainWindow::on_actionImportImage_triggered()
           return;
         }
 	  }
-	  else if (ext == "dcm" || ext == "dicom")
+	  else if (ext == "dcm" || ext == "dicom" || files.size() > 1)
 	  {
         #ifdef HAS_DICOM
-        imageModel = doc->ImportDicom(sfile);
+		if (files.size() > 1)
+		{
+          std::vector<std::string> dicoms;
+          for(auto && file : files)
+            dicoms.push_back(file.toStdString());
+          
+          imageModel = doc->ImportDicom(dicoms.at(0),dicoms);
+		}
+        else
+          imageModel = doc->ImportDicom(sfile);
         #endif
         if (imageModel == nullptr)
         {

@@ -60,7 +60,7 @@ public:
 #endif
 
 #ifdef HAS_DICOM
-  bool LoadDicomData(const std::string &filename);
+  bool LoadDicomData(const std::string &filename, const std::vector<std::string> &files = {});
 #endif
 	bool LoadImageData(const std::string& fileName, int nx, int ny, int nz);
 
@@ -89,6 +89,11 @@ private:
 	}
 #endif
 
+#ifdef HAS_DICOM
+    Byte* ProcessImages(const std::vector<std::string> &images);
+    Byte* ProcessImage(const std::string &image);
+#endif
+
     void SetValues(const std::string &fileName, int x, int y, int z);
     void AssignImage(C3DImage* im);
 
@@ -108,7 +113,7 @@ public:
 #endif
 
 #ifdef HAS_DICOM
-  bool LoadDicomData(const std::string &filename);
+  bool LoadDicomData(const std::string &filename, const std::vector<std::string> &files = {});
 #endif
 	bool LoadImageData(const std::string& fileName, int nx, int ny, int nz, const BOX& box);
 
