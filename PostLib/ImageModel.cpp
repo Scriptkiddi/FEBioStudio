@@ -153,6 +153,19 @@ bool CImageSource::LoadNrrdData(std::wstring& filename)
 #endif
 
 #ifdef HAS_DICOM
+std::vector<Byte> CImageSource::ProcessInt16(const DiPixel* rawData, const int depth)
+{
+  std::vector<Byte> pixels;
+  const u_short* data = static_cast<const u_short*>(rawData->getData());
+  for(int i = 0; i < rawData->getCount(); ++i)
+  { 
+    pixels.push_back(data[i] >> (depth - 8));
+  }
+
+  return pixels;
+}
+
+
 Byte* CImageSource::ProcessImages(const std::vector<std::string>& images)
 {
   std::vector<Byte> pixels;
@@ -162,10 +175,18 @@ Byte* CImageSource::ProcessImages(const std::vector<std::string>& images)
     auto dicomImage = std::make_unique<DicomImage>(image.c_str());
     auto rawData = dicomImage->getInterData();
 
-   std::cout << dicomImage->getDepth() << std::endl;
+    //std::cout << dicomImage->getDepth() << std::endl;
     
     EP_Representation type = rawData->getRepresentation();
-    
+    //std::cout << type << std::endl;
+    if(type == EPR_Uint16 || type == EPR_Sint16)
+    {
+      auto data = ProcessInt16(rawData,dicomImage->getDepth()); //grab the data from the image
+      pixels.insert(pixels.end(), std::make_move_iterator(data.begin()), 
+                                  std::make_move_iterator(data.end())); // move the data into the vector
+    } 
+  } 
+   /*
     if (type == EPR_Uint16 && dicomImage->getDepth() == 16)
     {
       const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
@@ -212,12 +233,9 @@ Byte* CImageSource::ProcessImages(const std::vector<std::string>& images)
       }
     }
   }
-
-  Byte* data = new Byte[pixels.size()];
-
-  for(int i = 0; i < pixels.size(); ++i)
-    data[i] = pixels.at(i);
-
+*/
+  Byte* data = new Byte[pixels.size()]; // create a new buffer of Bytes (I cannot find a way to do this otherwise)
+  std::move(pixels.begin(),pixels.end(),data); // move the data from the vector into the raw array. 
 
   return data;
 }
