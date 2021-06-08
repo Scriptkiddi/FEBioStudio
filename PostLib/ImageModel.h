@@ -39,7 +39,10 @@ SOFTWARE.*/
 #endif
 
 class C3DImage;
+
+#ifdef HAS_DICOM
 class DiPixel;
+#endif
 
 namespace Post {
 
@@ -93,7 +96,9 @@ private:
 #ifdef HAS_DICOM
     Byte* ProcessImages(const std::vector<std::string> &images);
     Byte* ProcessImage(const std::string &image);
+    Byte* ProcessInt16(const DiPixel* rawData, Byte* dataBuf, const int depth);
     std::vector<Byte> ProcessInt16(const DiPixel* rawData,const int depth);
+    std::vector<Byte> ProcessChar(const DiPixel* rawData);
 #endif
 
     void SetValues(const std::string &fileName, int x, int y, int z);

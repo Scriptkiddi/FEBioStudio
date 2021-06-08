@@ -155,85 +155,63 @@ bool CImageSource::LoadNrrdData(std::wstring& filename)
 #ifdef HAS_DICOM
 std::vector<Byte> CImageSource::ProcessInt16(const DiPixel* rawData, const int depth)
 {
-  std::vector<Byte> pixels;
-  const u_short* data = static_cast<const u_short*>(rawData->getData());
+  std::vector<Byte> pixels(rawData->getCount()); // allocate the memory
+  const u_short* data = static_cast<const u_short*>(rawData->getData()); // cast the pixel data
   for(int i = 0; i < rawData->getCount(); ++i)
   { 
-    pixels.push_back(data[i] >> (depth - 8));
+    pixels.at(i) = (data[i] >> (depth - 8));
   }
 
   return pixels;
 }
 
+std::vector<Byte> CImageSource::ProcessChar(const DiPixel* rawData)
+{
+  std::vector<Byte> pixels(rawData->getCount()); // allocate the memory
+  const Byte* data = static_cast<const Byte*>(rawData->getData()); //only returns const
+  for(int i = 0; i < rawData->getCount(); ++i)
+  { 
+    pixels.at(i) = data[i];
+  }
+
+  return pixels;
+}
+
+Byte* CImageSource::ProcessInt16(const DiPixel* rawData, Byte* dataBuf, const int depth)
+{
+  const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
+  for(int i = 0; i < rawData->getCount(); ++i)
+  { 
+    dataBuf[i] = (data[i] >> (depth - 8));
+  }
+
+  return dataBuf;
+}
 
 Byte* CImageSource::ProcessImages(const std::vector<std::string>& images)
 {
-  std::vector<Byte> pixels;
+  std::vector<Byte> pixels; //create a vector of pixels
 
+  // For every image in the vector
   for (const auto &image : images)
   {
-    auto dicomImage = std::make_unique<DicomImage>(image.c_str());
-    auto rawData = dicomImage->getInterData();
+    auto dicomImage = std::make_unique<DicomImage>(image.c_str()); // create a new Dicom
+    auto rawData = dicomImage->getInterData(); // extract the raw data
 
-    //std::cout << dicomImage->getDepth() << std::endl;
-    
-    EP_Representation type = rawData->getRepresentation();
-    //std::cout << type << std::endl;
+    EP_Representation type = rawData->getRepresentation(); // Get the type the color depth is in
     if(type == EPR_Uint16 || type == EPR_Sint16)
     {
       auto data = ProcessInt16(rawData,dicomImage->getDepth()); //grab the data from the image
       pixels.insert(pixels.end(), std::make_move_iterator(data.begin()), 
                                   std::make_move_iterator(data.end())); // move the data into the vector
-    } 
+    }
+	else
+	{
+      auto data = ProcessChar(rawData); //grab the data from the image
+      pixels.insert(pixels.end(), std::make_move_iterator(data.begin()), 
+                                  std::make_move_iterator(data.end())); // move the data into the vector
+	}
   } 
-   /*
-    if (type == EPR_Uint16 && dicomImage->getDepth() == 16)
-    {
-      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
-      for(int i = 0; i < rawData->getCount(); ++i)
-      { 
-        pixels.push_back(data[i] >> 8);
-      }
-    }
-    if (type == EPR_Sint16 && dicomImage->getDepth() == 16)
-    {
-      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
-      for(int i = 0; i < rawData->getCount(); ++i)
-      { 
-        pixels.push_back(data[i] >> 8);
-      }
-    }
-    else if (type == EPR_Uint16 && dicomImage->getDepth() == 12)
-    {
-      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
- 
-      for(int i = 0; i < rawData->getCount(); ++i)
-      {
-        //std::bitset<12> twelveBit = data[i];
-        pixels.push_back(data[i] >> 4);
-      }
-    }
-    else if (type == EPR_Uint16 && dicomImage->getDepth() == 10)
-    {
-      const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
- 
-      for(int i = 0; i < rawData->getCount(); ++i)
-      {
-        std::bitset<10> tenBit = data[i];
-        pixels.push_back(256 * tenBit.to_ulong()/1024);
-      }
-    }
-    else
-    {
-      const Byte* data = static_cast<const Byte*>(rawData->getData());
-
-      for(int i = 0; i < rawData->getCount(); ++i)
-      { 
-        pixels.push_back(data[i]);
-      }
-    }
-  }
-*/
   Byte* data = new Byte[pixels.size()]; // create a new buffer of Bytes (I cannot find a way to do this otherwise)
   std::move(pixels.begin(),pixels.end(),data); // move the data from the vector into the raw array. 
 
@@ -248,23 +226,9 @@ Byte* CImageSource::ProcessImage(const std::string& image)
   EP_Representation type = rawData->getRepresentation();  // An Enum that gets the type 
   Byte* dataBuf = new Byte[rawData->getCount()]; //may not need dataSize
 
-  if (type == EPR_Uint16 && dicomImage->getDepth() == 16)
+  if (type == EPR_Uint16 || type == EPR_Sint16)
   {
-    const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
-    for(int i = 0; i < rawData->getCount(); ++i)
-    { 
-      dataBuf[i] = data[i] >> 8;
-    }
-  }
-  else if (type == EPR_Uint16 && dicomImage->getDepth() == 10)
-  {
-    const u_short* data = static_cast<const u_short*>(rawData->getData()); //only returns const
- 
-    for(int i = 0; i < rawData->getCount(); ++i)
-    {
-      std::bitset<10> tenBit = data[i];
-      dataBuf[i] = 256 * tenBit.to_ulong()/1024;
-    }
+    dataBuf = ProcessInt16(rawData,dataBuf,dicomImage->getDepth());
   }
   else
   {

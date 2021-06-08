@@ -1411,7 +1411,7 @@ void CMainWindow::on_actionImportImage_triggered()
   #ifdef HAS_TEEM && HAS_DICOM
 	  filters << "RAW files (*.raw)" << "TIFF files (*.tiff, *.tif)" << "NRRD files (*.nrrd)" << "Dicom files (*.dicom, *.dcm)" << "All Files (*)";
   #elif HAS_DICOM
-      filters << "RAW files (*.raw)" << "Dicom files (*.dicom, *.dcm)";
+      filters << "RAW files (*.raw)" << "Dicom files (*.dicom, *.dcm)" << "All Files(*)";
   #elif HAS_TEEM 
 	  filters << "RAW files (*.raw)" << "TIFF files (*.tiff, *.tif)" << "NRRD files (*.nrrd)";
   #else
@@ -1475,6 +1475,8 @@ void CMainWindow::on_actionImportImage_triggered()
 		if (files.size() > 1)
 		{
           std::vector<std::string> dicoms;
+
+          // This is going to have to figure out how to filter out non dicoms. 
           for(auto && file : files)
             dicoms.push_back(file.toStdString());
           
